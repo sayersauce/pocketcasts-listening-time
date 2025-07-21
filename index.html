@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pocket Casts Listening Time</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+</head>
+<body>
+    <h1>Pocket Casts Listening Time</h1>
+    {% if seconds is defined %}
+        <p>
+            Total listening time: 
+            {% set hours = seconds // 3600 %}
+            {% set minutes = (seconds % 3600) // 60 %}
+            {% set secs = seconds % 60 %}
+            {{ hours }} hours, {{ minutes }} mins, {{ secs }} secs
+        </p>
+    {% else %}
+        <p>No listening time data available.</p>
+    {% endif %}
+
+    <p>Listening time in the last <span id="sliderValue">24</span> hour(s): <span id="windowResult"></span></p>
+    <input type="range" id="hourSlider" min="1" max="168" value="24", step="1">
+
+    <div style="width: 50%;">
+        <canvas id="historyChart" width="600" height="400"></canvas>
+    </div>
+
+    <details>
+        <summary>Debug: Historical data</summary>
+        {% for ts, secs in history %}
+            {{ ts }}, {{ secs }} <br>
+        {% endfor %}
+    </details>
+
+    <script>
+        // Pass week_data to JS
+        const history = [
+            {% for ts, secs in history %}
+                {timestamp: {{ ts }}, seconds: {{ secs }}}
+                {% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        function formatTime(totalSeconds) {
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const secs = totalSeconds % 60;
+            return `${hours} hours, ${minutes} mins, ${secs} secs`;
+        }
+
+        function updateWindowResult(hoursAgo) {
+            // History is timestamps of listening times ordered from oldest to newest
+            const latestTimestamp = history[history.length - 1].timestamp;
+            const windowStart = latestTimestamp - (hoursAgo * 3600);
+            let previousSeconds = history[history.length - 1].seconds;
+            for (let entry of history) {
+                if (entry.timestamp >= windowStart) {
+                    previousSeconds = entry.seconds;
+                    break;
+                }
+            }
+            document.getElementById('windowResult').textContent = formatTime(history[history.length - 1].seconds - previousSeconds);
+        }
+
+        const slider = document.getElementById('hourSlider');
+        const sliderValue = document.getElementById('sliderValue');
+        slider.addEventListener('input', function() {
+            sliderValue.textContent = slider.value;
+            updateWindowResult(parseInt(slider.value));
+        });
+
+        // Initial display
+        updateWindowResult(parseInt(slider.value));
+
+        // Chart.js
+        const labels = history.map(entry => new Date(entry.timestamp * 1000)); // Keep as Date objects
+        const data = history.map(entry => entry.seconds / 3600);
+
+        if (history.length > 0) {
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Listening Time (hrs)',
+                        data: data,
+                        fill: false,
+                        tension: 0
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'yyyy-MM-dd HH:mm',
+                                displayFormats: {
+                                    minute: 'HH:mm',
+                                    hour: 'HH:mm',
+                                    day: 'MMM d',
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date/Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Hours'
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('historyChart').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

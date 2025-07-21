@@ -1,10 +1,5 @@
-make it so there is 5 minute cooldown on query
-make it so it auto queries when you hit root
-make it so when you hit root it queries and then serves html
-make it so it gives the client side all of the rows of data in the last week
-add slider to find amount listened in last x amount of hours
 make front end presentable
 clean up code slightly
-deploy somewhere cheap, learn docker perhaps and add cicd
+deploy somewhere cheap, docker perhaps and add cicd
 add screenshots and text to readme
 done

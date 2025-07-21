@@ -1,17 +1,18 @@
 import time
 import requests
 import sqlite3
+import os
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from credentials import EMAIL, PASSWORD
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
 
-
+EMAIL = os.environ.get("EMAIL")
+PASSWORD = os.environ.get("PASSWORD")
 AUTH_URL = "https://api.pocketcasts.com/user/login"
 SECONDS_URL = "https://api.pocketcasts.com/user/stats/summary"
 DB_PATH = "listening_time.db"
-
-app = FastAPI()
+POLL_COOLDOWN = 300
+last_poll_time = 0
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -72,21 +73,33 @@ def response_to_seconds(response):
 
     return listened - (silence + skipping + intro_skipping + variable_speed)
 
-@app.get("/latest")
-def get_latest():
-    data = poll_api()
-    if data and data['response']:
-        seconds = response_to_seconds(data['response'])
-        save_seconds(data['timestamp'], seconds)
-        return JSONResponse(content={
-            "timestamp": data['timestamp'],
-            "seconds": seconds
-        })
+app = FastAPI()
+templates = Jinja2Templates(directory=".")
+
+@app.get("/")
+def root(request: Request):
+    global last_poll_time
+
+    if time.time() - last_poll_time > POLL_COOLDOWN:
+        data = poll_api()
+        if data and data['response']:
+            seconds = response_to_seconds(data['response'])
+            save_seconds(data['timestamp'], seconds)
+        last_poll_time = time.time()
     else:
-        return JSONResponse(content={"error": "Failed to poll API"}, status_code=500)
+        print("Skipping API poll due to cooldown.")
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT timestamp, seconds FROM listening_time WHERE timestamp >= ?", (time.time() - 7*24*3600,))
+    history = c.fetchall()
+    conn.close()
 
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "seconds": history[-1][1] if history else 0,
+        "history": history
+    })
 
 if __name__ == "__main__":
     init_db()
