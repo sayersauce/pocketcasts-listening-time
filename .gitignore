@@ -1,3 +1,5 @@
 credentials.py
 listening_time.db
 __pycache__/
+fly.toml
+.github/

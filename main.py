@@ -10,7 +10,8 @@ EMAIL = os.environ.get("EMAIL")
 PASSWORD = os.environ.get("PASSWORD")
 AUTH_URL = "https://api.pocketcasts.com/user/login"
 SECONDS_URL = "https://api.pocketcasts.com/user/stats/summary"
-DB_PATH = "listening_time.db"
+# DB_PATH = "listening_time.db"
+DB_PATH = "/data/db.sqlite3"
 POLL_COOLDOWN = 300
 last_poll_time = 0
 
@@ -101,7 +102,8 @@ def root(request: Request):
         "history": history
     })
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
